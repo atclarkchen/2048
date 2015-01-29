@@ -1,0 +1,511 @@
+// This file contains a SUGGESTION for the structure of your program.  You
+// may change any of it, or add additional files to this directory (package),
+// as long as you conform to the project specification.  Do not, however,
+// modify the contents of the 'gui' subpackage.
+
+// We have indicated parts of the file that you might especially want to
+// fill in with "// FIXME"  or "// REPLACE..." comments.  But again,
+// you can change just about anything.
+
+// Comments that start with "//" are intended to be removed from your
+// solutions.
+
+/** 
+This Version (current bugs and imperfections)
+
+1. gameOver not working completely according to specs
+2. Max score must work according to specs
+    if "new game" or "quit" is pressed, do not update max score
+    if game ends  
+*/
+
+package game2048;
+
+import ucb.util.CommandArgs;
+
+
+import game2048.gui.Game;
+import static game2048.Main.Side.*;
+
+/** The main class for the 2048 game.
+ *  @author
+ */
+public class Main {
+
+    /** Size of the board: number of rows and of columns. */
+    static final int SIZE = 4;
+    /** Number of squares on the board. */
+    static final int SQUARES = SIZE * SIZE;
+
+    /** Symbolic names for the four sides of a board. */
+    static enum Side { NORTH, EAST, SOUTH, WEST };
+    
+    private boolean has2048;
+    private boolean canMove;
+    
+    /** The main program.  ARGS may contain the options --seed=NUM,
+     *  (random seed); --log (record moves and random tiles
+     *  selected.); --testing (take random tiles and moves from
+     *  standard input); and --no-display. */
+    public static void main(String... args) {
+        CommandArgs options =
+            new CommandArgs("--seed=(\\d+) --log --testing --no-display",
+                            args);
+        if (!options.ok()) {
+            System.err.println("Usage: java game2048.Main [ --seed=NUM ] "
+                               + "[ --log ] [ --testing ] [ --no-display ]");
+            System.exit(1);
+        }
+
+        Main game = new Main(options);
+
+        while (game.play()) {
+            /* No action */
+        }
+        System.exit(0);
+    }
+
+    /** A new Main object using OPTIONS as options (as for main). */
+    Main(CommandArgs options) {
+        boolean log = options.contains("--log"),
+            display = !options.contains("--no-display");
+        long seed = !options.contains("--seed") ? 0 : options.getLong("--seed");
+        _testing = options.contains("--testing");
+        _game = new Game("2048", SIZE, seed, log, display, _testing);
+    }
+
+    /** Reset the score for the current game to 0 and clear the board. */
+    void clear() {
+        _score = 0;
+        _count = 0;
+        _game.clear();
+        _game.setScore(_score, _maxScore);
+        for (int r = 0; r < SIZE; r += 1) {
+            for (int c = 0; c < SIZE; c += 1) {
+                _board[r][c] = 0;
+            }
+        }
+    }
+
+    /** Play one game of 2048, updating the maximum score. Return true
+     *  iff play should continue with another game, or false to exit. 
+     *  Note: endGame() only called when player HAS NO MOVES or GETS 2048
+     *  endGame(), and you MUST SETSCORE FIRST. */
+    boolean play() {
+        // FIXME?
+        clear();
+        _game.clear();
+        
+        has2048 = false; //one per single game played
+        canMove = true; // starts as true, but gameOver() should modify it as needed
+        
+        setRandomPiece();
+        while (true) {
+            // FIXME?
+            System.out.println("has2048: " + has2048);
+            setRandomPiece(); 
+
+            if (gameOver()) {
+                // FIXME?
+                if (has2048) { //if gameOver is true BECAUSE 2048, update maxScore
+                    if (_maxScore < _score) {
+                        _maxScore = _score;
+                    }
+                    _game.setScore(_score, _maxScore);
+                    _game.endGame();
+                }
+                if (!canMove) { // if you cannot make a move, update maxScore
+                    if (_maxScore < _score) {
+                        _maxScore = _score;
+                    }
+                    _game.setScore(_score, _maxScore);
+                    _game.endGame();
+                    //return false;
+                }
+            }
+        GetMove:
+            while (true) {
+                String key = _game.readKey();
+                System.out.println(key);
+                
+                if (key == "↑")
+                    key = "Up";
+
+                if (key == "←")
+                    key = "Left";
+
+                if (key == "→")
+                    key = "Right";
+
+                if (key == "↓")
+                    key = "Down";
+                
+                switch (key) {
+                case "Up": case "Down": case "Left": case "Right":
+                    if (!gameOver() && tiltBoard(keyToSide(key))) { //game is not over AND tiltboard is true
+                        break GetMove;
+                    }
+                    break; //breaks out of switch. still while true so it goes back to find a "key"
+                // FIXME?
+                case "Quit": 
+                    return false;
+                case "New Game":
+                    return true;
+                default:
+                    break;
+                } // come HERE AFTER BREAK SWITCH
+            }
+            // FIXME? // this is where BREAK GETMOVE GOES TO
+        }
+    }
+
+    /** Return true iff the current game is over (no more moves
+     *  possible). 
+     *  1. 2048 has been obtained
+     *  2. No more possible moves (tilt does not change the board when used in any direction)
+     */
+    boolean gameOver() {
+        // FIXME?
+        if (has2048) { //user got 2048 on their board. Game is over!
+            return true;
+        }
+        if (_count < SQUARES) { //empty spaces exist, so game is not over!
+            return false;
+        }       
+        else {
+            /**
+             * check corners
+             */
+            for (int r = 0; r < SIZE; r++) {
+                for (int c = 0; c < SIZE; c++) {
+                    int tileVal = _board[r][c];
+                    
+                    if (r == 0 && c == 0) { //does upper left corner checks
+                        if ((tileVal == _board[1][0]) || (tileVal == _board[0][1])) {
+                            return false;
+                        }
+                    }
+                    if (r == 0 && c == 3) { //does upper right corner checks
+                        if ( (tileVal == _board[0][2]) || (tileVal == _board[1][3])) {
+                            return false;
+                        }
+                    }
+                    if (r == 3 && c == 0) { // does bottom left corner checks
+                        if ( (tileVal == _board[2][0]) || (tileVal == _board[3][1])) {
+                            return false;
+                        }
+                    }
+                    if (r == 3 && c == 3) { // bottom right corner checks
+                        if ( (tileVal == _board[2][3]) || (tileVal == _board[3][2])) {
+                            return false;
+                        }
+                    }
+                    if (r == 0) { // center top row tiles
+                        if (c == 1) { // check bottom and right
+                            if (tileVal == _board[1][1] || tileVal == _board[0][2]) {
+                                return false;
+                            }
+                        }
+                        if (c == 2) {
+                            if (tileVal == _board[0][1] || tileVal == _board[1][2]) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (r == 3) { // center bottom row tiles
+                        if (c == 1) {
+                            if (tileVal == _board[2][1] || tileVal == _board[3][2]) {
+                                return false;
+                            }
+                        }
+                        if (c == 2) {
+                            if (tileVal == _board[2][2]) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (c == 0) { 
+                        if (r == 1) { //tile right below left corner
+                            if (tileVal == _board[1][1] || tileVal == _board[2][0]) {
+                                return false;
+                            }
+                        }
+                        if (r == 2) { //tile below r == 1
+                            if (tileVal == _board[2][1]) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (c == 3) {
+                        if (r == 1) {
+                            if (tileVal == _board[1][2] || tileVal == _board[2][3]) {
+                                return false;
+                            }
+                        }
+                        if (r == 2) {
+                            if (tileVal == _board[2][2]) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (c == 1) { // center square of 4 tiles
+                        if (r == 1) {
+                            if ((tileVal == _board[1][2]) || (tileVal == _board[2][1])) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (c == 2) {
+                        if (r == 2) {
+                            if ((tileVal == _board[1][2]) || (tileVal == _board[2][1])) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            } //if "false" has not been returned, then there are no possible legal moves and
+                //gameOver is true
+        
+            /* if (_score > _maxScore) {
+                _maxScore = _score;
+            }
+            _game.setScore(_score, _maxScore);
+            _game.endGame(); */
+            canMove = false;
+            return true;
+        }
+    }
+
+    /** Add a tile to a random, empty position, choosing a value (2 or
+     *  4) at random.  Has no effect if the board is currently full. */
+    void setRandomPiece() {
+        if (_count == SQUARES) {
+            return;
+        }
+        // FIXME? 
+
+        int[] randTile = _game.getRandomTile();
+        //note that getRandomTile returns {value, row, column}
+        int i = randTile[1];
+        int j = randTile[2];
+        //System.out.println("What is at index: " + i + ", " + j + " "+ _board[i][j]);
+        if(_board[i][j] == 0) { //means the spot is empty
+            //System.out.println("This spot is empty!");
+            int value = randTile[0];
+            _game.addTile(value, i, j); 
+            _board[i][j] = value; //updates the "real" board
+            _count ++;
+            return;
+        }
+        else { //coordinates that were chosen are already filled, call setRandomPiece again 
+            setRandomPiece();
+        }
+    }
+
+    /** Perform the result of tilting the board toward SIDE.
+     *  Returns true iff the tilt changes the board. **/
+    boolean tiltBoard(Side side) {
+        /* As a suggestion (see the project text), you might try copying
+         * the board to a local array, turning it so that edge SIDE faces
+         * north.  That way, you can re-use the same logic for all
+         * directions.  (As usual, you don't have to). */
+
+        
+        int[][] board = new int[SIZE][SIZE];
+        int[][] boardCopy = new int[SIZE][SIZE]; // use boardCopy for gameOver purposes
+        // FIXME?
+        boolean hasChanged = false;
+        
+        for (int r = 0; r < SIZE; r += 1) { //copying and placing values INTO board (local array)
+            for (int c = 0; c < SIZE; c += 1) {
+                board[r][c] = //this local copy board is the rotated version of original
+                    _board[tiltRow(side, r, c)][tiltCol(side, r, c)]; //rotates the original board and puts into local array
+                // FIXME?
+            }
+        }
+        //start manipulating board
+        // FIXME?
+        
+        /**
+         * board operations of moving and merging. Game functions happen here
+         * Note: take into account both FRONT-END and BACK-END
+         * 1. move all Tiles up in board (local 2d array)
+         */
+        
+        //1. take top-down approach (start from row 0)
+            // all pieces in row 0 stay put --> do nothing
+            //initiate from row 1
+        // Note: moveTile must take the UNTILTED position
+        
+        int[][] mergedTiles = new int[SIZE][SIZE];
+        for (int r = 1; r < SIZE; r += 1) {
+            for (int c = 0; c < SIZE; c+= 1) {
+                boolean canMerge = false; 
+                if (board[r][c] == 0) { //empty space, nothing to move
+                    continue;
+                }
+                else { //actually do things to tiles 
+                    /** All (movements) inclusive algorithm
+                     * always try to slide as far up as possible
+                     *      if r == 0, then continue iteration to next tile
+                     *      otherwise: when tile (above) encountered, check to see if it is mergeable
+                     *      if it is mergeable, merge them and set to new location 
+                     */
+                    int untiltRow1 = tiltRow(side, r, c); //untilted positions for original index
+                    int untiltCol1 = tiltCol(side, r, c);
+                    int tileVal = board[r][c];
+                    int newRow = r;
+    
+                    while (newRow != 0) {
+                        if (board[newRow - 1][c] == 0) {
+                            newRow --;
+                        }
+                        else { //tile above
+                            if (/*!hasMerged && */ (board[newRow-1][c] == board[r][c])) {
+                                newRow --; //newRow takes the position of tile from above
+                                canMerge = true;
+                                break;
+                            }
+                            else {
+                                //newRow has position right below tile above
+                                break;
+                            }
+                        }
+                    } 
+                    //untilted coordinates for new position
+                    int untiltRow2 = tiltRow(side, newRow, c);
+                    int untiltCol2 = tiltCol(side, newRow, c);
+
+                    if (canMerge && mergedTiles[newRow][c] == 0) { //merge
+                        int newVal = tileVal * 2;
+                        _game.mergeTile(tileVal, newVal, untiltRow1, untiltCol1, untiltRow2, untiltCol2);
+                        board[newRow][c] = newVal;
+                        board[r][c] = 0; 
+
+                        
+                        mergedTiles[newRow][c] = 1; //so it cannot be merged again
+                        _count --;
+                        _score += newVal;
+                        _game.setScore(_score, _maxScore);
+
+                        hasChanged = true;
+                        if (newVal == 2048) {
+                            has2048 = true;
+                            System.out.println("Congratulations! You got 2048! Get a life!");
+                        }
+                    }
+                    else { //slide
+                        if (newRow == r) {
+                            //_game.moveTile(tileVal, untiltRow1, untiltCol1, untiltRow2, untiltCol2);
+                            //hasChanged = false;
+                            continue; //don't slide!
+                        }
+                        else if (mergedTiles[newRow][c] == 1) { //tile above is merged, but you still want to one below
+                            newRow += 1;
+                            untiltRow2 = tiltRow(side, newRow, c); //final untilted Values have to be updated
+                            untiltCol2 = tiltCol(side, newRow, c);
+                            _game.moveTile(tileVal, untiltRow1, untiltCol1, untiltRow2, untiltCol2);
+                            board[newRow][c] = tileVal;
+                            board[r][c] = 0;
+                            
+                            hasChanged = true;
+                        }
+                        else { //just slide
+                        _game.moveTile(tileVal, untiltRow1, untiltCol1, untiltRow2, untiltCol2);
+                        board[newRow][c] = tileVal;
+                        board[r][c] = 0;
+                        hasChanged = true;
+                        }
+                    }
+                }
+            }
+        } 
+        
+        for (int r = 0; r < SIZE; r += 1) { // This updates values in ORIGINAL board
+            for (int c = 0; c < SIZE; c += 1) {
+                _board[tiltRow(side, r, c)][tiltCol(side, r, c)] 
+                    = board[r][c];
+            }
+        } 
+        _game.displayMoves(); 
+        // FIXME?
+        
+       System.out.println("board hasChanged: " + hasChanged);
+       return hasChanged;
+    }
+
+    /** Return the row number on a playing board that corresponds to row R
+     *  and column C of a board turned so that row 0 is in direction SIDE (as
+     *  specified by the definitions of NORTH, EAST, etc.).  So, if SIDE
+     *  is NORTH, then tiltRow simply returns R (since in that case, the
+     *  board is not turned).  If SIDE is WEST, then column 0 of the tilted
+     *  board corresponds to row SIZE - 1 of the untilted board, and
+     *  tiltRow returns SIZE - 1 - C. */
+    int tiltRow(Side side, int r, int c) {
+        switch (side) {
+        case NORTH:
+            return r;
+        case EAST:
+            return c;
+        case SOUTH:
+            return SIZE - 1 - r;
+        case WEST:
+            return SIZE - 1 - c;
+        default:
+            throw new IllegalArgumentException("Unknown direction");
+        }
+    }
+
+    /** Return the column number on a playing board that corresponds to row
+     *  R and column C of a board turned so that row 0 is in direction SIDE
+     *  (as specified by the definitions of NORTH, EAST, etc.). So, if SIDE
+     *  is NORTH, then tiltCol simply returns C (since in that case, the
+     *  board is not turned).  If SIDE is WEST, then row 0 of the tilted
+     *  board corresponds to column 0 of the untilted board, and tiltCol
+     *  returns R. */
+    int tiltCol(Side side, int r, int c) {
+        switch (side) {
+        case NORTH:
+            return c;
+        case EAST:
+            return SIZE - 1 - r;
+        case SOUTH:
+            return SIZE - 1 - c;
+        case WEST:
+            return r;
+        default:
+            throw new IllegalArgumentException("Unknown direction");
+        }
+    }
+
+    /** Return the side indicated by KEY ("Up", "Down", "Left",
+     *  or "Right"). */
+    Side keyToSide(String key) {
+        switch (key) {
+        case "Up":
+            return NORTH;
+        case "Down":
+            return SOUTH;
+        case "Left":
+            return WEST;
+        case "Right":
+            return EAST;
+        default:
+            throw new IllegalArgumentException("unknown key designation");
+        }
+    }
+
+    /** Represents the board: _board[r][c] is the tile value at row R,
+     *  column C, or 0 if there is no tile there. */
+    private final int[][] _board = new int[SIZE][SIZE];
+
+    /** True iff --testing option selected. */
+    private boolean _testing;
+    /** THe current input source and output sink. */
+    private Game _game;
+    /** The score of the current game, and the maximum final score
+     *  over all games in this session. */
+    private int _score, _maxScore;
+    /** Number of tiles on the board. */
+    private int _count;
+}
